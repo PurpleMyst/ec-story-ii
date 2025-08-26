@@ -20,12 +20,13 @@ impl Board {
         debug_assert!(width <= 64);
 
         let rows = it
-            .map(|line| line.bytes().enumerate()
-                .filter_map(|(i, b)| 
-                    (b == b'*').then_some(1 << i)
-                )
-                .fold(0, |acc, cell| acc | cell)
-            ).collect();
+            .map(|line| {
+                line.bytes()
+                    .enumerate()
+                    .filter_map(|(i, b)| (b == b'*').then_some(1 << i))
+                    .fold(0, |acc, cell| acc | cell)
+            })
+            .collect();
 
         Self { width, rows }
     }
@@ -37,13 +38,50 @@ impl Board {
     fn height(&self) -> usize {
         self.rows.len()
     }
+
+    /// Simulate a token falling through the board, starting at the given slot index (0-based).
+    /// Returns the number of coins won.
+    fn simulate(&self, slot_idx: usize, moves: &str) -> usize {
+        let mut x = 2 * slot_idx;
+        let mut y = 0;
+        debug_assert!(x < self.width);
+
+        let mut it = parse_moves(moves);
+
+        while y < self.height() {
+            if self.has_nail(x, y) {
+                match it.next().unwrap() {
+                    Direction::Left => {
+                        if x != 0 {
+                            x -= 1;
+                        } else {
+                            x += 1;
+                        }
+                    }
+                    Direction::Right => {
+                        if x != self.width - 1 {
+                            x += 1;
+                        } else {
+                            x -= 1;
+                        }
+                    }
+                }
+            }
+
+            y += 1;
+        }
+
+        let initial_slot = ((2 * slot_idx) / 2) + 1;
+        let final_slot = (x / 2) + 1;
+        (2 * final_slot).saturating_sub(initial_slot)
+    }
 }
 
 #[inline]
 pub fn solve() -> (impl Display, impl Display, impl Display) {
     let part1 = solve_part1();
     let part2 = solve_part2();
-    let part3 = solve_part3(include_str!("part3.txt"));
+    let part3 = solve_part3();
 
     (part1, part2, part3)
 }
@@ -52,47 +90,14 @@ pub fn solve_part1() -> usize {
     let (board, tokens) = include_str!("part1.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
-    tokens.lines().enumerate().map(|(i, moves)| {
-        simulate_token(&board, i, moves)
-    }).sum()
+    tokens
+        .lines()
+        .enumerate()
+        .map(|(slot_idx, moves)| board.simulate(slot_idx, moves))
+        .sum()
 }
 
-fn simulate_token(board: &Board, slot_idx: usize, moves: &str) -> usize {
-    let mut x = 2 * slot_idx;
-    let mut y = 0;
-    debug_assert!(x < board.width);
-
-    let mut it = parse_moves(moves);
-
-    while y < board.height() {
-        if board.has_nail(x, y) {
-            match it.next().unwrap() {
-                Direction::Left => if x != 0 {
-                    x -= 1;
-                } else {
-                    x += 1;
-                }
-                Direction::Right => if x != board.width - 1 {
-                    x += 1;
-                } else {
-                    x -= 1;
-                }
-            }
-        }
-
-        y += 1;
-    }
-
-    let initial_slot = ((2 * slot_idx) / 2) + 1;
-    let final_slot = (x / 2) + 1;
-    let coins_won = (2 * final_slot).saturating_sub(initial_slot);
-
-    // eprintln!("{moves} {initial_slot:2} {final_slot:2} => {coins_won:3}");
-
-    coins_won
-}
-
-fn parse_moves(moves: &str) -> impl Iterator<Item = Direction>  {
+fn parse_moves(moves: &str) -> impl Iterator<Item = Direction> {
     moves.bytes().map(|b| match b {
         b'L' => Direction::Left,
         b'R' => Direction::Right,
@@ -108,22 +113,22 @@ pub fn solve_part2() -> usize {
         .lines()
         .map(|moves| {
             (0..=board.width / 2)
-                .map(|slot_idx| simulate_token(&board, slot_idx, moves))
+                .map(|slot_idx| board.simulate(slot_idx, moves))
                 .max()
                 .unwrap()
         })
         .sum()
 }
 
-pub fn solve_part3(input: &'static str) -> impl Display {
-    let (board, tokens) = input.split_once("\n\n").unwrap();
+pub fn solve_part3() -> impl Display {
+    let (board, tokens) = include_str!("part3.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
     let slot_values = tokens
         .lines()
         .map(|moves| {
             (0..=board.width / 2)
-                .map(|slot_idx| simulate_token(&board, slot_idx, moves))
+                .map(|slot_idx| board.simulate(slot_idx, moves))
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
@@ -131,15 +136,15 @@ pub fn solve_part3(input: &'static str) -> impl Display {
     let (min, max) = (0..=board.width / 2)
         .permutations(6)
         .map(|perm| {
-            perm
-                .into_iter()
+            perm.into_iter()
                 .enumerate()
                 .map(|(token_idx, slot_idx)| slot_values[token_idx][slot_idx])
                 .sum::<usize>()
         })
         .minmax()
-            .into_option().unwrap();
-    
+        .into_option()
+        .unwrap();
+
     format!("{min} {max}")
 }
 

@@ -2,10 +2,10 @@
 resolver = "3"
 members = [
     "benchmark",
-    "problem01",
+    "quest01",
 ]
 
-[workspace.metadata.problem01]
+[workspace.metadata.quest01]
 start_time = 2025-08-27T00:41:40.438043
 completion_time = 2025-08-27T01:20:15.028981
 

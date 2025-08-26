@@ -4,7 +4,7 @@ version = "1.0.0"
 edition = "2024"
 
 [dependencies]
-problem01 = { version = "0.1.0", path = "../problem01" }
+quest01 = { version = "0.1.0", path = "../quest01" }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
