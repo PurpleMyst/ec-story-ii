@@ -33,7 +33,7 @@ name = "benchmark"
 version = "1.0.0"
 dependencies = [
  "criterion",
- "problem01",
+ "quest01",
 ]
 
 [[package]]
@@ -282,19 +282,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "problem01"
-version = "0.1.0"
-dependencies = [
- "itertools 0.14.0",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quest01"
+version = "0.1.0"
+dependencies = [
+ "itertools 0.14.0",
 ]
 
 [[package]]

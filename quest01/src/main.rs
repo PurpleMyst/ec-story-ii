@@ -1,5 +1,5 @@
 fn main() {
-    let (part1, part2, part3) = crate::solve();
+    let (part1, part2, part3) = quest01::solve();
     println!("{part1}");
     println!("{part2}");
     println!("{part3}");
