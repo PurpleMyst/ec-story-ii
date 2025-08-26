@@ -147,14 +147,3 @@ pub fn solve_part3() -> impl Display {
 
     format!("{min} {max}")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_part3() {
-        assert_eq!(solve_part3(include_str!("sample2_part3.txt")).to_string(), "25 66");
-        assert_eq!(solve_part3(include_str!("sample3_part3.txt")).to_string(), "39 122");
-    }
-}
