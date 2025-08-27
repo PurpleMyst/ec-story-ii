@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use itertools::Itertools;
+use rayon::prelude::*;
 
 struct Board {
     width: usize,
@@ -41,7 +42,7 @@ impl Board {
 
     /// Simulate a token falling through the board, starting at the given slot index (0-based).
     /// Returns the number of coins won.
-    fn simulate(&self, slot_idx: usize, moves: &str) -> usize {
+    fn simulate(&self, slot_idx: usize, moves: &str) -> u8 {
         let mut x = 2 * slot_idx;
         let mut y = 0;
         debug_assert!(x < self.width);
@@ -73,7 +74,7 @@ impl Board {
 
         let initial_slot = ((2 * slot_idx) / 2) + 1;
         let final_slot = (x / 2) + 1;
-        (2 * final_slot).saturating_sub(initial_slot)
+        (2 * final_slot).saturating_sub(initial_slot) as _
     }
 }
 
@@ -86,7 +87,7 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
     (part1, part2, part3)
 }
 
-pub fn solve_part1() -> usize {
+pub fn solve_part1() -> u8 {
     let (board, tokens) = include_str!("part1.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
@@ -105,12 +106,12 @@ fn parse_moves(moves: &str) -> impl Iterator<Item = Direction> {
     })
 }
 
-pub fn solve_part2() -> usize {
+pub fn solve_part2() -> u8 {
     let (board, tokens) = include_str!("part2.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
     tokens
-        .lines()
+        .par_lines()
         .map(|moves| {
             (0..=board.width / 2)
                 .map(|slot_idx| board.simulate(slot_idx, moves))
@@ -125,7 +126,7 @@ pub fn solve_part3() -> impl Display {
     let board = Board::new(board);
 
     let slot_values = tokens
-        .lines()
+        .par_lines()
         .map(|moves| {
             (0..=board.width / 2)
                 .map(|slot_idx| board.simulate(slot_idx, moves))
@@ -139,7 +140,7 @@ pub fn solve_part3() -> impl Display {
             perm.into_iter()
                 .enumerate()
                 .map(|(token_idx, slot_idx)| slot_values[token_idx][slot_idx])
-                .sum::<usize>()
+                .sum::<u8>()
         })
         .minmax()
         .into_option()
