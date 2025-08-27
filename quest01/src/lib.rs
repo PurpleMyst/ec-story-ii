@@ -132,30 +132,24 @@ pub fn solve_part3() -> impl Display {
         .lines()
         .map(|moves| {
             (0..=board.width / 2)
-                .map(|slot_idx| board.simulate(slot_idx, moves))
+                .map(|slot_idx| board.simulate(slot_idx, moves) as u8)
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
 
-    #[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Copy)]
-    struct State {
-        coins: u16,
-        used_slots: u32,
-    }
-
     // We then run an iteration for each i-th token, where at the start of such iteration the
     // `states` set corresponds to all states we could've gotten to with (i - 1) tokens. We advance
     // all such states by dropping our new token, and the `HashSet` takes care of deduplication.
+    //
+    // A state is represented as a `u32`, where the lower 8 bits represent the total coins won so
+    // far, and the upper 24 bits represent which slots have been filled (1 if filled, 0 if not).
     let mut states = FxHashSet::default();
     let mut new_states = FxHashSet::default();
-    states.insert(State::default());
+    states.insert(0);
     for slot_values in &token_slot_values {
         new_states.par_extend(states.par_drain().flat_map_iter(|state| {
             (0..=board.width / 2).filter_map(move |slot| {
-                (state.used_slots & (1 << slot) == 0).then(|| State {
-                    coins: state.coins + slot_values[slot],
-                    used_slots: state.used_slots | (1 << slot),
-                })
+                (state & (1 << (slot + 8)) == 0).then(|| (state + slot_values[slot] as u32) | (1 << (slot + 8)))
             })
         }));
         swap(&mut states, &mut new_states);
@@ -163,7 +157,7 @@ pub fn solve_part3() -> impl Display {
 
     let (min, max) = states
         .into_iter()
-        .map(|state| state.coins)
+        .map(|state| (state & 0xff) as u8)
         .minmax()
         .into_option()
         .unwrap();
