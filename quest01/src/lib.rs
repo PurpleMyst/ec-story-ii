@@ -1,7 +1,8 @@
-use std::fmt::Display;
+use std::{fmt::Display, mem::swap};
 
 use itertools::Itertools;
 use rayon::prelude::*;
+use rustc_hash::FxHashSet;
 
 struct Board {
     width: usize,
@@ -42,7 +43,7 @@ impl Board {
 
     /// Simulate a token falling through the board, starting at the given slot index (0-based).
     /// Returns the number of coins won.
-    fn simulate(&self, slot_idx: usize, moves: &str) -> u8 {
+    fn simulate(&self, slot_idx: usize, moves: &str) -> u16 {
         let mut x = 2 * slot_idx;
         let mut y = 0;
         debug_assert!(x < self.width);
@@ -87,7 +88,7 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
     (part1, part2, part3)
 }
 
-pub fn solve_part1() -> u8 {
+pub fn solve_part1() -> u16 {
     let (board, tokens) = include_str!("part1.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
@@ -106,7 +107,7 @@ fn parse_moves(moves: &str) -> impl Iterator<Item = Direction> {
     })
 }
 
-pub fn solve_part2() -> u8 {
+pub fn solve_part2() -> u16 {
     let (board, tokens) = include_str!("part2.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
@@ -125,8 +126,10 @@ pub fn solve_part3() -> impl Display {
     let (board, tokens) = include_str!("part3.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
 
-    let slot_values = tokens
-        .par_lines()
+    // Pre-compute a matrix of token-slot values. Each "row" corresponds to a token, with the i-th
+    // cell in that row corresponding to the coins gotten by dropping that token into the i-th slot.
+    let token_slot_values = tokens
+        .lines()
         .map(|moves| {
             (0..=board.width / 2)
                 .map(|slot_idx| board.simulate(slot_idx, moves))
@@ -134,14 +137,33 @@ pub fn solve_part3() -> impl Display {
         })
         .collect::<Vec<_>>();
 
-    let (min, max) = (0..=board.width / 2)
-        .permutations(6)
-        .map(|perm| {
-            perm.into_iter()
-                .enumerate()
-                .map(|(token_idx, slot_idx)| slot_values[token_idx][slot_idx])
-                .sum::<u8>()
-        })
+    #[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    struct State {
+        coins: u16,
+        used_slots: u32,
+    }
+
+    // We then run an iteration for each i-th token, where at the start of such iteration the
+    // `states` set corresponds to all states we could've gotten to with (i - 1) tokens. We advance
+    // all such states by dropping our new token, and the `HashSet` takes care of deduplication.
+    let mut states = FxHashSet::default();
+    let mut new_states = FxHashSet::default();
+    states.insert(State::default());
+    for slot_values in &token_slot_values {
+        new_states.par_extend(states.par_drain().flat_map_iter(|state| {
+            (0..=board.width / 2).filter_map(move |slot| {
+                (state.used_slots & (1 << slot) == 0).then(|| State {
+                    coins: state.coins + slot_values[slot],
+                    used_slots: state.used_slots | (1 << slot),
+                })
+            })
+        }));
+        swap(&mut states, &mut new_states);
+    }
+
+    let (min, max) = states
+        .into_iter()
+        .map(|state| state.coins)
         .minmax()
         .into_option()
         .unwrap();
