@@ -3,9 +3,11 @@ use std::{fmt::Display, mem::swap};
 use rayon::prelude::*;
 use rustc_hash::FxHashMap;
 
+type Row = u64;
+
 struct Board {
     width: usize,
-    rows: Vec<u64>,
+    rows: Vec<Row>,
 }
 
 enum Direction {
@@ -18,7 +20,7 @@ impl Board {
         let mut it = data.lines().peekable();
 
         let width = it.peek().unwrap().len();
-        debug_assert!(width <= 64);
+        debug_assert!(width <= Row::BITS as usize);
 
         let rows = it
             .map(|line| {
@@ -44,12 +46,11 @@ impl Board {
     /// Returns the number of coins won.
     fn simulate(&self, slot_idx: usize, moves: &str) -> u16 {
         let mut x = 2 * slot_idx;
-        let mut y = 0;
         debug_assert!(x < self.width);
 
         let mut it = parse_moves(moves);
 
-        while y < self.height() {
+        for y in 0..self.height() {
             if self.has_nail(x, y) {
                 match it.next().unwrap() {
                     Direction::Left => {
@@ -68,8 +69,6 @@ impl Board {
                     }
                 }
             }
-
-            y += 1;
         }
 
         let initial_slot = ((2 * slot_idx) / 2) + 1;
