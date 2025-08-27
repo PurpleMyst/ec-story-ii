@@ -122,6 +122,7 @@ pub fn solve_part2() -> u16 {
         .par_lines()
         .map(|moves| {
             (0..=board.width / 2)
+                .into_par_iter()
                 .map(|slot_idx| board.simulate(slot_idx, moves))
                 .max()
                 .unwrap()
