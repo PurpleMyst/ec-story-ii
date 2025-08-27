@@ -1,11 +1,10 @@
 use std::{fmt::Display, mem::swap};
 
+use intmap::IntMap;
+use num_traits::PrimInt;
 use rayon::prelude::*;
-use rustc_hash::FxHashMap;
 
-type Row = u64;
-
-struct Board {
+struct Board<Row> {
     width: usize,
     rows: Vec<Row>,
 }
@@ -15,19 +14,27 @@ enum Direction {
     Right,
 }
 
-impl Board {
+fn split_emptyline(s: &str) -> (&str, &str) {
+    s.split_once("\n\n").or_else(|| s.split_once("\r\n\r\n")).unwrap()
+}
+
+impl<Row: PrimInt> Board<Row> {
     fn new(data: &'static str) -> Self {
         let mut it = data.lines().peekable();
 
         let width = it.peek().unwrap().len();
-        debug_assert!(width <= Row::BITS as usize);
+        debug_assert!(
+            width <= (Row::max_value().count_ones() as usize),
+            "{width} > {}",
+            Row::max_value().count_ones()
+        );
 
         let rows = it
             .map(|line| {
                 line.bytes()
                     .enumerate()
-                    .filter_map(|(i, b)| (b == b'*').then_some(1 << i))
-                    .fold(0, |acc, cell| acc | cell)
+                    .filter_map(|(i, b)| (b == b'*').then_some(Row::one() << i))
+                    .fold(Row::zero(), |acc, cell| acc | cell)
             })
             .collect();
 
@@ -35,7 +42,7 @@ impl Board {
     }
 
     fn has_nail(&self, x: usize, y: usize) -> bool {
-        self.rows[y] & (1 << x) != 0
+        !(self.rows[y] & (Row::one() << x)).is_zero()
     }
 
     fn height(&self) -> usize {
@@ -87,8 +94,8 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
 }
 
 pub fn solve_part1() -> u16 {
-    let (board, tokens) = include_str!("part1.txt").split_once("\n\n").unwrap();
-    let board = Board::new(board);
+    let (board, tokens) = split_emptyline(include_str!("part1.txt"));
+    let board = Board::<u32>::new(board);
 
     tokens
         .lines()
@@ -106,8 +113,8 @@ fn parse_moves(moves: &str) -> impl Iterator<Item = Direction> {
 }
 
 pub fn solve_part2() -> u16 {
-    let (board, tokens) = include_str!("part2.txt").split_once("\n\n").unwrap();
-    let board = Board::new(board);
+    let (board, tokens) = split_emptyline(include_str!("part2.txt"));
+    let board = Board::<u32>::new(board);
 
     tokens
         .par_lines()
@@ -121,8 +128,8 @@ pub fn solve_part2() -> u16 {
 }
 
 pub fn solve_part3() -> impl Display {
-    let (board, tokens) = include_str!("part3.txt").split_once("\n\n").unwrap();
-    let board = Board::new(board);
+    let (board, tokens) = split_emptyline(include_str!("part3.txt"));
+    let board = Board::<u64>::new(board);
     let num_slots = board.width / 2 + 1;
 
     let token_slot_values = tokens
@@ -135,8 +142,8 @@ pub fn solve_part3() -> impl Display {
         .collect::<Vec<_>>();
 
     // States: used_slots -> (min_score, max_score)
-    let mut states = FxHashMap::default();
-    let mut next_states = FxHashMap::default();
+    let mut states = IntMap::default();
+    let mut next_states = IntMap::default();
     states.insert(0u32, (0u8, 0u8));
 
     // For each token, try placing it in each available slot; in each iteration, `states` contains
@@ -163,7 +170,7 @@ pub fn solve_part3() -> impl Display {
 
     let mut min = u8::MAX;
     let mut max = 0;
-    for (min_score, max_score) in states.into_values() {
+    for &(min_score, max_score) in states.values() {
         min = min.min(min_score);
         max = max.max(max_score);
     }

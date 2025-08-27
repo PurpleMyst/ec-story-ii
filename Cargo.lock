@@ -175,6 +175,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "intmap"
+version = "3.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16dd999647b7a027fadf2b3041a4ea9c8ae21562823fe5cbdecd46537d535ae2"
+
+[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -285,6 +291,8 @@ dependencies = [
 name = "quest01"
 version = "0.1.0"
 dependencies = [
+ "intmap",
+ "num-traits",
  "rayon",
  "rustc-hash",
 ]
