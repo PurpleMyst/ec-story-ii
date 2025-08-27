@@ -1,8 +1,7 @@
 use std::{fmt::Display, mem::swap};
 
-use itertools::Itertools;
 use rayon::prelude::*;
-use rustc_hash::FxHashSet;
+use rustc_hash::FxHashMap;
 
 struct Board {
     width: usize,
@@ -125,42 +124,49 @@ pub fn solve_part2() -> u16 {
 pub fn solve_part3() -> impl Display {
     let (board, tokens) = include_str!("part3.txt").split_once("\n\n").unwrap();
     let board = Board::new(board);
+    let num_slots = board.width / 2 + 1;
 
-    // Pre-compute a matrix of token-slot values. Each "row" corresponds to a token, with the i-th
-    // cell in that row corresponding to the coins gotten by dropping that token into the i-th slot.
     let token_slot_values = tokens
         .lines()
         .map(|moves| {
-            (0..=board.width / 2)
+            (0..num_slots)
                 .map(|slot_idx| board.simulate(slot_idx, moves) as u8)
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
 
-    // We then run an iteration for each i-th token, where at the start of such iteration the
-    // `states` set corresponds to all states we could've gotten to with (i - 1) tokens. We advance
-    // all such states by dropping our new token, and the `HashSet` takes care of deduplication.
-    //
-    // A state is represented as a `u32`, where the lower 8 bits represent the total coins won so
-    // far, and the upper 24 bits represent which slots have been filled (1 if filled, 0 if not).
-    let mut states = FxHashSet::default();
-    let mut new_states = FxHashSet::default();
-    states.insert(0);
+    // States: used_slots -> (min_score, max_score)
+    let mut states = FxHashMap::default();
+    let mut next_states = FxHashMap::default();
+    states.insert(0u32, (0u8, 0u8));
+
+    // For each token, try placing it in each available slot; in each iteration, `states` contains
+    // the best we've been able to do with the previous tokens.
     for slot_values in &token_slot_values {
-        new_states.par_extend(states.par_drain().flat_map_iter(|state| {
-            (0..=board.width / 2).filter_map(move |slot| {
-                (state & (1 << (slot + 8)) == 0).then(|| (state + slot_values[slot] as u32) | (1 << (slot + 8)))
-            })
-        }));
-        swap(&mut states, &mut new_states);
+        for (used_slots, (current_min, current_max)) in states.drain() {
+            for slot in 0..num_slots {
+                if (used_slots & (1 << slot)) != 0 {
+                    continue;
+                }
+                let new_used_slots = used_slots | (1 << slot);
+                let coins_won = slot_values[slot];
+
+                let new_min = current_min + coins_won;
+                let new_max = current_max + coins_won;
+
+                let entry = next_states.entry(new_used_slots).or_insert((u8::MAX, 0));
+                entry.0 = entry.0.min(new_min);
+                entry.1 = entry.1.max(new_max);
+            }
+        }
+        swap(&mut states, &mut next_states);
     }
 
-    let (min, max) = states
-        .into_iter()
-        .map(|state| (state & 0xff) as u8)
-        .minmax()
-        .into_option()
-        .unwrap();
-
+    let mut min = u8::MAX;
+    let mut max = 0;
+    for (min_score, max_score) in states.into_values() {
+        min = min.min(min_score);
+        max = max.max(max_score);
+    }
     format!("{min} {max}")
 }

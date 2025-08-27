@@ -82,7 +82,7 @@ dependencies = [
  "clap",
  "criterion-plot",
  "csv",
- "itertools 0.10.5",
+ "itertools",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -104,7 +104,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2673cc8207403546f45f5fd319a974b1e6983ad1a3ee7e6041650013be041876"
 dependencies = [
  "cast",
- "itertools 0.10.5",
+ "itertools",
 ]
 
 [[package]]
@@ -179,15 +179,6 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -294,7 +285,6 @@ dependencies = [
 name = "quest01"
 version = "0.1.0"
 dependencies = [
- "itertools 0.14.0",
  "rayon",
  "rustc-hash",
 ]
