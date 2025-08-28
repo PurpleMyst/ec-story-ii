@@ -34,6 +34,7 @@ version = "1.0.0"
 dependencies = [
  "criterion",
  "quest01",
+ "quest02",
 ]
 
 [[package]]
@@ -296,6 +297,10 @@ dependencies = [
  "rayon",
  "rustc-hash",
 ]
+
+[[package]]
+name = "quest02"
+version = "0.1.0"
 
 [[package]]
 name = "quote"
