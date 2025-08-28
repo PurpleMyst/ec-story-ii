@@ -14,7 +14,7 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
 }
 
 #[inline]
-pub fn solve_part1() -> u16 {
+pub fn solve_part1() -> u32 {
     let mut input = include_str!("part1.txt").trim().bytes().peekable();
     let mut bolts = 0;
 
@@ -35,25 +35,29 @@ pub fn solve_part1() -> u16 {
 }
 
 #[inline]
-pub fn solve_part2() -> u16 {
+pub fn solve_part2() -> u32 {
     solve_part23(include_str!("part2.txt"), 100)
 }
 
 #[inline]
-pub fn solve_part3() -> u16 {
+pub fn solve_part3() -> u32 {
     solve_part23(include_str!("part3.txt"), 100_000)
 }
 
-fn solve_part23(input: &str, repeats: usize) -> u16 {
-    let mut circle = input.trim().as_bytes().repeat(repeats);
-    let mut left = VecDeque::new();
-    let mut right = Vec::new();
-    for item in circle.drain(0..circle.len() / 2) {
-        left.push_back(item);
-    }
-    for item in circle.into_iter() {
-        right.push(item);
-    }
+fn solve_part23(input: &str, repeats: usize) -> u32 {
+    let mut left = input
+        .trim()
+        .bytes()
+        .cycle()
+        .take((input.trim().len() * repeats) / 2 + 1)
+        .collect::<VecDeque<_>>();
+    let mut right = input
+        .trim()
+        .bytes()
+        .cycle()
+        .skip(left.len())
+        .take((input.trim().len() * repeats) - left.len())
+        .collect::<Vec<_>>();
     right.reverse();
 
     let mut bolts = 0;
