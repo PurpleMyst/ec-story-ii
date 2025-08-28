@@ -1,5 +1,9 @@
 use std::{collections::VecDeque, fmt::Display};
 
+// Pretty similiar to AoC 2016 Day 19, so I reused the same approach that seems/seemed to work well
+// there. The idea is to use two VecDeques to represent the circle, and keep them balanced. Well,
+// the right half is actually a Vec, but we only ever push/pop from the end, so it's better.
+
 #[inline]
 pub fn solve() -> (impl Display, impl Display, impl Display) {
     let part1 = solve_part1();
@@ -10,7 +14,7 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
 }
 
 #[inline]
-pub fn solve_part1() -> usize {
+pub fn solve_part1() -> u16 {
     let mut input = include_str!("part1.txt").trim().bytes().peekable();
     let mut bolts = 0;
 
@@ -31,37 +35,41 @@ pub fn solve_part1() -> usize {
 }
 
 #[inline]
-pub fn solve_part2() -> usize {
+pub fn solve_part2() -> u16 {
     solve_part23(include_str!("part2.txt"), 100)
 }
 
 #[inline]
-pub fn solve_part3() -> usize {
+pub fn solve_part3() -> u16 {
     solve_part23(include_str!("part3.txt"), 100_000)
 }
 
-fn solve_part23(input: &str, repeats: usize) -> usize {
+fn solve_part23(input: &str, repeats: usize) -> u16 {
     let mut circle = input.trim().as_bytes().repeat(repeats);
     let mut left = VecDeque::new();
-    let mut right = VecDeque::new();
+    let mut right = Vec::new();
     for item in circle.drain(0..circle.len() / 2) {
         left.push_back(item);
     }
     for item in circle.into_iter() {
-        right.push_back(item);
+        right.push(item);
     }
+    right.reverse();
 
     let mut bolts = 0;
 
+    // This seems to be significantly faster than b"RGB"[bolts % 3] ¯\_(ツ)_/¯
+    let mut bolt_iter = b"RGB".into_iter().cycle().copied();
+
     while let Some(head) = left.pop_front() {
-        if head == b"RGB"[bolts % 3] {
-            if (left.len() + right.len() + 1) % 2 == 0 {
-                right.pop_front().unwrap();
+        if head == bolt_iter.next().unwrap() {
+            if left.len() < right.len() {
+                right.pop().unwrap();
             }
         }
 
         if left.len() < right.len() {
-            left.push_back(right.pop_front().unwrap());
+            left.push_back(right.pop().unwrap());
         }
 
         bolts += 1;
