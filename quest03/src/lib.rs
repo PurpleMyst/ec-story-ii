@@ -190,14 +190,13 @@ pub fn solve_part3() -> impl Display {
                         .drain()
                         .flat_map(|pos| {
                             [
-                                Some(pos),
-                                Some((pos.0 + 1, pos.1)),
-                                pos.0.checked_sub(1).map(|fst| (fst, pos.1)),
-                                Some((pos.0, pos.1 + 1)),
-                                pos.1.checked_sub(1).map(|snd| (pos.0, snd)),
+                                pos,
+                                (pos.0 + 1, pos.1),
+                                (pos.0.wrapping_sub(1), pos.1),
+                                (pos.0, pos.1 + 1),
+                                (pos.0, pos.1.wrapping_sub(1)),
                             ]
                         })
-                        .flatten()
                         .filter(|pos| map.get(pos.0, pos.1) == Some(&next_roll)),
                 );
 
