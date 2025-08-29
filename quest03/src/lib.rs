@@ -1,8 +1,20 @@
-use std::{collections::HashSet, fmt::Display, mem::swap};
+use std::{fmt::Display, mem::swap};
+
+use fixedbitset::FixedBitSet;
+use rayon::prelude::*;
+use rustc_hash::FxHashSet as HashSet;
 
 struct Die {
-    id: usize,
     faces: Vec<i64>,
+    seed: i64,
+
+    pulse: i64,
+    roll_number: i64,
+}
+
+struct TenDie {
+    id: usize,
+    faces: [u8; 9],
     seed: i64,
 
     pulse: i64,
@@ -12,8 +24,7 @@ struct Die {
 impl Die {
     fn parse(s: &str) -> Self {
         // 1: faces=[1,2,4,-1,5,7,9] seed=3
-        let (num, data) = s.trim().split_once(": ").unwrap();
-        let id = num.parse().unwrap();
+        let (_, data) = s.trim().split_once(": ").unwrap();
 
         let (faces, seed) = data.split_once(" ").unwrap();
         let mut faces: Vec<i64> = faces
@@ -28,7 +39,6 @@ impl Die {
         faces.shrink_to_fit();
 
         Self {
-            id,
             faces,
             seed,
             pulse: seed,
@@ -37,6 +47,45 @@ impl Die {
     }
 
     fn roll(&mut self) -> i64 {
+        self.roll_number += 1;
+        let spin = self.roll_number * self.pulse;
+        let l = self.faces.len();
+        self.faces.rotate_left(usize::try_from(spin).unwrap() % l);
+        let result = self.faces[0];
+        self.pulse += spin;
+        self.pulse %= self.seed;
+        self.pulse += 1 + self.roll_number + self.seed;
+        result
+    }
+}
+
+impl TenDie {
+    fn parse(s: &str) -> Self {
+        // 1: faces=[1,2,4,-1,5,7,9] seed=3
+        let (num, data) = s.trim().split_once(": ").unwrap();
+        let id = num.parse().unwrap();
+
+        let (faces, seed) = data.split_once(" ").unwrap();
+        let faces: Vec<_> = faces
+            .strip_prefix("faces=[")
+            .unwrap()
+            .strip_suffix("]")
+            .unwrap()
+            .split(',')
+            .map(|n| n.parse().unwrap())
+            .collect();
+        let seed = seed.strip_prefix("seed=").unwrap().parse().unwrap();
+
+        Self {
+            id,
+            faces: faces.try_into().unwrap(),
+            seed,
+            pulse: seed,
+            roll_number: 0,
+        }
+    }
+
+    fn roll(&mut self) -> u8 {
         self.roll_number += 1;
         let spin = self.roll_number * self.pulse;
         let l = self.faces.len();
@@ -64,7 +113,7 @@ pub fn solve() -> (impl Display, impl Display, impl Display) {
 
 #[inline]
 pub fn solve_part1() -> impl Display {
-    let mut dice: Vec<Die> = include_str!("part1.txt").lines().map(Die::parse).collect();
+    let mut dice: Vec<_> = include_str!("part1.txt").lines().map(Die::parse).collect();
     let mut total = 0;
 
     (1usize..)
@@ -78,9 +127,9 @@ pub fn solve_part1() -> impl Display {
 #[inline]
 pub fn solve_part2() -> impl Display {
     let (dice, track) = split_emptyline(include_str!("part2.txt"));
-    let track: Vec<i64> = track.trim().bytes().map(|n| (n - b'0') as i64).collect();
+    let track: Vec<_> = track.trim().bytes().map(|n| n - b'0').collect();
 
-    let mut dice: Vec<Die> = dice.lines().map(Die::parse).collect();
+    let mut dice: Vec<_> = dice.lines().map(TenDie::parse).collect();
     let mut positions = vec![0usize; dice.len()];
     let mut result = Vec::new();
 
@@ -107,49 +156,62 @@ pub fn solve_part3() -> impl Display {
     let (dice, track) = split_emptyline(include_str!("part3.txt"));
 
     let width = track.lines().next().unwrap().len();
-    let map: Vec<i64> = track
+    let map: Vec<_> = track
         .trim()
         .bytes()
         .filter(|n| !matches!(n, b'\n' | b'\r'))
-        .map(|n| (n - b'0') as i64)
+        .map(|n| n - b'0')
         .collect();
-    let mut visited = grid::Grid::from_vec(vec![false; map.len()], width);
+    let size = map.len();
+
     let map = grid::Grid::from_vec(map, width);
 
-    let dice: Vec<Die> = dice.lines().map(Die::parse).collect();
-    for mut die in dice {
-        let first_roll = die.roll();
+    let dice: Vec<_> = dice.lines().map(TenDie::parse).collect();
 
-        let mut states: HashSet<(usize, usize)> = map
-            .indexed_iter()
-            .filter_map(|(pos, &cell)| (cell == first_roll).then_some(pos))
-            .collect();
-        let mut next_states = HashSet::new();
+    dice.into_par_iter()
+        .map(|mut die| {
+            let mut visited = FixedBitSet::with_capacity(size);
 
-        while !states.is_empty() {
-            states.iter().for_each(|&pos| visited[pos] = true);
+            let first_roll = die.roll();
 
-            let next_roll = die.roll();
+            let mut states: HashSet<(usize, usize)> = map
+                .indexed_iter()
+                .filter_map(|(pos, &cell)| (cell == first_roll).then_some(pos))
+                .collect();
+            let mut next_states = HashSet::default();
 
-            next_states.extend(
-                states
-                    .drain()
-                    .flat_map(|pos| {
-                        [
-                            Some(pos),
-                            Some((pos.0 + 1, pos.1)),
-                            pos.0.checked_sub(1).map(|fst| (fst, pos.1)),
-                            Some((pos.0, pos.1 + 1)),
-                            pos.1.checked_sub(1).map(|snd| (pos.0, snd)),
-                        ]
-                    })
-                    .flatten()
-                    .filter(|pos| map.get(pos.0, pos.1) == Some(&next_roll)),
-            );
+            while !states.is_empty() {
+                states.iter().for_each(|&pos| visited.set(pos.0 * width + pos.1, true));
 
-            swap(&mut states, &mut next_states);
-        }
-    }
+                let next_roll = die.roll();
 
-    visited.into_iter().filter(|&b| b).count()
+                next_states.extend(
+                    states
+                        .drain()
+                        .flat_map(|pos| {
+                            [
+                                Some(pos),
+                                Some((pos.0 + 1, pos.1)),
+                                pos.0.checked_sub(1).map(|fst| (fst, pos.1)),
+                                Some((pos.0, pos.1 + 1)),
+                                pos.1.checked_sub(1).map(|snd| (pos.0, snd)),
+                            ]
+                        })
+                        .flatten()
+                        .filter(|pos| map.get(pos.0, pos.1) == Some(&next_roll)),
+                );
+
+                swap(&mut states, &mut next_states);
+            }
+
+            visited
+        })
+        .reduce(
+            || FixedBitSet::with_capacity(size),
+            |mut a, b| {
+                a.union_with(&b);
+                a
+            },
+        )
+        .count_ones(..)
 }
