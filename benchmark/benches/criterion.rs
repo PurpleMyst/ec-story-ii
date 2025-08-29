@@ -32,4 +32,5 @@ macro_rules! problems {
 problems!(
     quest01,
     quest02,
+    quest03,
 );
